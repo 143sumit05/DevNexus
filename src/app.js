@@ -1,37 +1,31 @@
+require("dotenv").config();
 const express = require('express');
-
 const app = express();
-// app.get("/profile",(req,res)=>{
-//     res.send("PROFILE KHULGYI");
-// })
-// app.post(("/profile"),(req,res)=>{
-//     res.send("SuccesFully Posted data");
-// })
-// app.use(("/login"),(req,res)=>{
-//     res.send("LOGIN PAGE KHULGYA");
-// })
 
-// app.use(("/"),(req,res)=>{
-//     res.send("NODEMON SE CHALAYA SERVER");
-// })
-
-app.use("/user",(req,res,next)=>{
-    console.log("1");
-    next();
-    // res.end("RES1");
- 
-},[(req,res,next)=>{
-    console.log("2");
-    next();
-    
-}],(req,res,next)=>{
-    console.log(3);
-    res.end("3");
-})
+const connectDB = require('./config/database.js');
+const User = require('./models/user.js');
 
 
-
-
-app.listen(3000,()=>{
+connectDB().then(()=>{
+    console.log("DataBase connection established");
+    app.listen(3000,()=>{
     console.log("SERVER STARTED AT 3000");
+})
+}).catch((err)=>{
+    console.log("Cant connect to Database");
+})
+app.post("/signup",async (req,res)=>{
+    const user = new User({
+        firstName : "Shivani",
+        lastName : "Modi",
+        emailId : "143shivani05@gmail.com",
+        password : "shivani123",
+        age : 20,
+        gender : "female"
+    })
+    await user.save();
+    res.send("Saved to Database");
+})
+app.use("/",(req,res)=>{
+    res.end("HEHE SERVER CHALPEYA");
 })
