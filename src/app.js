@@ -39,7 +39,28 @@ app.get("/feed",async(req,res)=>{
     }
 })
 
+app.delete("/user",async(req,res)=>{
+    const id = req.body.id;
+    try{
+        const user = await User.findByIdAndDelete(id);
+        res.send("Deleted");
+    }
+    catch(err){
+        res.status(400).send("Something went wrooooonggggg!!!");
+    }
+})
 
+app.patch("/update",async(req,res)=>{
+    const data = req.body;
+    const emailId = req.body.emailId;
+    try{
+        const user = await User.findOneAndUpdate({emailId :emailId},data);
+        res.send("Updated");
+    }
+    catch(err){
+        res.status(400).send("Something went WROOOONG");
+    }
+})
 
 // app.post("/signup",async (req,res)=>{
 //     const user = new User(req.body);
