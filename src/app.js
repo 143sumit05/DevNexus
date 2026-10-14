@@ -7,8 +7,9 @@ const User = require('./models/user.js');
 const bcrypt = require('bcrypt');
 const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
-
-
+const authRouter = require('./routes/authRouter.js');
+const profileRouter = require('./routes/profileRouter.js');
+const requestRouter = require('./routes/requestRouter.js');
 app.use(cookieParser());
 app.use(express.json())
 
@@ -26,7 +27,9 @@ connectDB().then(()=>{
 
 
 
-
+app.use("/",authRouter);
+app.use("/",profileRouter);
+app.use("/",requestRouter);
 
 app.get("/cukie",async(req,res)=>{
 
@@ -37,31 +40,9 @@ app.get("/cukie",async(req,res)=>{
 })
 
 
-app.get("/profile",async(req,res)=>{
-
-    try{
-    const token = req.cookies.token;
-    const decoded = jwt.verify(token,"mysecretkey");
-    const user =  await User.findById(decoded.id);
-    console.log(decoded);
-    res.send(user);
-    }
-    catch(err){
-        res.send("Try Logging again");
-    }
-})
 
 
-app.get("/feed",async(req,res)=>{
-    const users = req.body.emailId;
-    try{
-        const user = await User.find({})
-        res.send(user);
-    }
-    catch(err){
-        res.status(400).send("Something went wrong");
-    }
-})
+
 
 
 app.delete("/user",async(req,res)=>{
@@ -76,70 +57,7 @@ app.delete("/user",async(req,res)=>{
 })
 
 
-app.patch("/update/:emailId",async(req,res)=>{
 
-    
-
-    const data = req.body;
-    
-    const emailId = req.params.emailId;
-    
-    const allowed = ["firstName","lastName","password"];
-
-    const keys = Object.keys(data);
-    for(let key of keys){
-        if(!allowed.includes(key)){
-            res.status(400).send("Update not allowed");
-        }
-    }
-    try{
-        const user = await User.findOneAndUpdate({emailId :emailId},data);
-        res.send("Updated");
-    }
-    catch(err){
-        res.status(400).send("Something went WROOOONG");
-    }
-})
-
-
-app.post("/signup",async (req,res)=>{
-    try{
-        validateData(req);
-        req.body.password = await bcrypt.hash(req.body.password,10);
-        const user = new User(req.body);
-    
-        await user.save();
-        res.send("Saved to Database");
-    }
-    catch(err){
-        res.status(400).send(err.message);
-    }
-})
-
-
-app.post("/login",async (req,res)=>{
-    try{
-        const {emailId , password} = req.body;
-        const user =  await User.findOne({emailId : emailId});
-        if(!user){
-            throw new Error("Email not registered");
-        }
-        const pass = await bcrypt.compare(password,user.password);
-        if(pass){
-
-            const token = jwt.sign({id: user._id},"mysecretkey");
-            res.cookie("token",token);
-            
-            res.send("Login success");
-        }
-        else{
-            throw new Error("Wrong password");
-        }
-    }
-    catch(err){
-        res.status(400).send(err.message);
-    }
-})
 
 
 app.use("/",(req,res)=>{
