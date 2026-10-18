@@ -9,7 +9,7 @@ const jwt = require('jsonwebtoken');
 
 authRouter.post("/signup",async (req,res)=>{
     try{
-        validateData(req);
+        validateData(req,"signup");
         req.body.password = await bcrypt.hash(req.body.password,10);
         const user = new User(req.body);
     
@@ -23,6 +23,7 @@ authRouter.post("/signup",async (req,res)=>{
 
 authRouter.post("/login",async (req,res)=>{
     try{
+        validateData(req, "login");
         const {emailId , password} = req.body;
         const user =  await User.findOne({emailId : emailId});
         if(!user){
@@ -31,7 +32,7 @@ authRouter.post("/login",async (req,res)=>{
         const pass = await bcrypt.compare(password,user.password);
         if(pass){
 
-            const token = jwt.sign({id: user._id},"mysecretkey");
+            const token = jwt.sign({id: user._id},process.env.JWT_SECRET);
             res.cookie("token",token);
             
             res.send("Login success");
@@ -44,6 +45,11 @@ authRouter.post("/login",async (req,res)=>{
         res.status(400).send(err.message);
     }
 })
-
+authRouter.post("/logout",async(req,res)=>{
+    res.cookie("token",null,{
+        expires : new Date(0)
+    })
+    res.send("Logged out successfully");
+})
 
 module.exports = authRouter;

@@ -10,6 +10,7 @@ const jwt = require('jsonwebtoken');
 const authRouter = require('./routes/authRouter.js');
 const profileRouter = require('./routes/profileRouter.js');
 const requestRouter = require('./routes/requestRouter.js');
+const userRouter = require('./routes/userRoute.js');
 app.use(cookieParser());
 app.use(express.json())
 
@@ -30,6 +31,7 @@ connectDB().then(()=>{
 app.use("/",authRouter);
 app.use("/",profileRouter);
 app.use("/",requestRouter);
+app.use("/",userRouter);
 
 app.get("/cukie",async(req,res)=>{
 
