@@ -4,22 +4,59 @@ const validator = require('validator');
 const validateData = (req, type) => {
     const { firstName, emailId, password, oldPass, newPass } = req.body;
 
+    // SIGNUP VALIDATION
     if (type === "signup") {
-        if (!firstName || !emailId || !password) {
-            throw new Error("First name, email and password are required");
+        const allowed = [
+            "firstName", "lastName", "emailId",
+            "password", "age", "gender"
+        ];
+
+        for (let key of Object.keys(req.body)) {
+            if (!allowed.includes(key)) {
+                throw new Error("Invalid field: " + key);
+            }
         }
 
-        if (!validator.isEmail(emailId)) {
+        if (typeof firstName !== "string" || !firstName.trim()) {
+            throw new Error("First name is required");
+        }
+
+        if (typeof emailId !== "string" || !validator.isEmail(emailId)) {
             throw new Error("Invalid email");
         }
 
-        if (!validator.isStrongPassword(password)) {
+        if (typeof password !== "string" || !validator.isStrongPassword(password)) {
             throw new Error("Password is too weak");
+        }
+
+        if (firstName.trim().length < 3 || firstName.trim().length > 22) {
+            throw new Error("First name must be 3 to 22 characters");
+        }
+
+        if (req.body.lastName !== undefined &&
+            typeof req.body.lastName !== "string") {
+            throw new Error("Last name must be a string");
+        }
+
+        if (req.body.age !== undefined &&
+            (!Number.isInteger(req.body.age) || req.body.age < 18)) {
+            throw new Error("Age must be an integer of at least 18");
+        }
+
+        if (req.body.gender !== undefined &&
+            typeof req.body.gender !== "string") {
+            throw new Error("Gender must be a string");
+        }
+
+        req.body.firstName = firstName.trim();
+        if (typeof req.body.lastName === "string") {
+            req.body.lastName = req.body.lastName.trim();
         }
     }
 
+    // LOGIN VALIDATION
     if (type === "login") {
-        if (!validator.isEmail(emailId || "")) {
+        if (typeof emailId !== "string" || !validator.isEmail(emailId)) {
             throw new Error("Invalid email");
         }
 
@@ -28,17 +65,19 @@ const validateData = (req, type) => {
         }
     }
 
+    // PASSWORD CHANGE VALIDATION
     if (type === "password") {
         if (typeof oldPass !== "string" || !oldPass) {
             throw new Error("Old password is required");
         }
 
-        if (!validator.isStrongPassword(newPass || "")) {
+        if (typeof newPass !== "string" ||
+            !validator.isStrongPassword(newPass)) {
             throw new Error("New password is too weak");
         }
     }
 
-    
+    // PROFILE EDIT VALIDATION
     if (type === "editProfile") {
         const allowed = ["firstName", "lastName", "age", "gender"];
         const keys = Object.keys(req.body);
@@ -55,15 +94,20 @@ const validateData = (req, type) => {
 
         const { firstName, lastName, age, gender } = req.body;
 
-        if (firstName !== undefined &&
-            (typeof firstName !== "string" ||
-             firstName.trim().length < 3 ||
-             firstName.trim().length > 22)) {
-            throw new Error("First name must be 3 to 22 characters");
+        if (firstName !== undefined) {
+            if (typeof firstName !== "string" ||
+                firstName.trim().length < 3 ||
+                firstName.trim().length > 22) {
+                throw new Error("First name must be 3 to 22 characters");
+            }
+            req.body.firstName = firstName.trim();
         }
 
-        if (lastName !== undefined && typeof lastName !== "string") {
-            throw new Error("Last name must be a string");
+        if (lastName !== undefined) {
+            if (typeof lastName !== "string") {
+                throw new Error("Last name must be a string");
+            }
+            req.body.lastName = lastName.trim();
         }
 
         if (age !== undefined &&
@@ -75,8 +119,6 @@ const validateData = (req, type) => {
             throw new Error("Gender must be a string");
         }
     }
-
-
 };
 
 module.exports = validateData;
