@@ -33,7 +33,11 @@ authRouter.post("/login",async (req,res)=>{
         if(pass){
 
             const token = jwt.sign({id: user._id},process.env.JWT_SECRET);
-            res.cookie("token",token);
+            res.cookie("token", token, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: process.env.NODE_ENV === "production" ? "none" : "lax"
+            });
             
             const { password, ...userData } = user.toObject();
 
@@ -50,11 +54,15 @@ authRouter.post("/login",async (req,res)=>{
         res.status(400).send(err.message);
     }
 })
-authRouter.post("/logout",async(req,res)=>{
-    res.cookie("token",null,{
-        expires : new Date(0)
-    })
+
+authRouter.post("/logout", async (req, res) => {
+    res.clearCookie("token", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax"
+    });
+
     res.send("Logged out successfully");
-})
+});
 
 module.exports = authRouter;
