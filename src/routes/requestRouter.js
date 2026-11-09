@@ -1,22 +1,17 @@
-
 const ConnectionRequest = require('../models/connectionRequest');
 const userAuth = require('../middlewares/auth');
 const mongoose = require('mongoose');
 const express = require('express');
+
 const requestRouter = express.Router();
 const User = require('../models/user');
-
-// FEED API WITH PAGINATION
+// FEED API WITH CURSOR PAGINATION
 requestRouter.get("/feed", userAuth, async (req, res) => {
     try {
         const loggedInUser = req.user;
 
-        let page = Number(req.query.page ?? 1);
         let limit = Number(req.query.limit ?? 10);
-
-        if (!Number.isInteger(page) || page < 1) {
-            return res.status(400).send("Invalid page number");
-        }
+        const lastId = req.query.lastId;
 
         if (!Number.isInteger(limit) || limit < 1) {
             return res.status(400).send("Invalid limit");
@@ -24,7 +19,9 @@ requestRouter.get("/feed", userAuth, async (req, res) => {
 
         limit = Math.min(limit, 50);
 
-        const skip = (page - 1) * limit;
+        if (lastId && !mongoose.Types.ObjectId.isValid(lastId)) {
+            return res.status(400).send("Invalid lastId");
+        }
 
         const hideFromFeed = await ConnectionRequest.find({
             $or: [
@@ -42,20 +39,31 @@ requestRouter.get("/feed", userAuth, async (req, res) => {
 
         hideUsers.add(loggedInUser._id.toString());
 
-        const feedUser = await User.find({
-            _id: { $nin: Array.from(hideUsers) }
-        })
-        .select("firstName lastName age gender")
-        .sort({ _id: 1 })
-        .skip(skip)
-        .limit(limit);
+        const query = {
+            _id: {
+                $nin: Array.from(hideUsers)
+            }
+        };
+
+        if (lastId) {
+            query._id.$gt = new mongoose.Types.ObjectId(lastId);
+        }
+
+        const feedUser = await User.find(query)
+            .select("firstName lastName age gender")
+            .sort({ _id: 1 })
+            .limit(limit);
 
         res.json({
             message: "UI FEED",
-            data: feedUser
+            data: feedUser,
+            nextCursor: feedUser.length > 0
+                ? feedUser[feedUser.length - 1]._id
+                : null
         });
     }
     catch (err) {
+        console.log(err);
         res.status(500).send("Something went wrong");
     }
 });
@@ -77,24 +85,24 @@ requestRouter.post("/request/:status/:toUserId", userAuth, async (req, res) => {
         const toUser = await User.findById(toUserId);
 
         if (!toUser) {
-            return res.status(400).send("user not found");
+            return res.status(400).send("User not found");
         }
 
         const fromUserId = req.user._id;
 
         if (fromUserId.equals(toUserId)) {
-            return res.status(400).send("cant send a request to yourself");
+            return res.status(400).send("Cannot send request to yourself");
         }
 
         const existingRequest = await ConnectionRequest.findOne({
             $or: [
-                { fromUserId: fromUserId, toUserId: toUserId },
+                { fromUserId, toUserId },
                 { fromUserId: toUserId, toUserId: fromUserId }
             ]
         });
 
         if (existingRequest) {
-            return res.status(400).send("Connection request already there");
+            return res.status(400).send("Connection request already exists");
         }
 
         const connectionRequest = new ConnectionRequest({
@@ -104,6 +112,7 @@ requestRouter.post("/request/:status/:toUserId", userAuth, async (req, res) => {
         });
 
         await connectionRequest.save();
+
         res.send("Connection request sent");
     }
     catch (err) {
@@ -119,7 +128,7 @@ requestRouter.patch("/recieve/:status/:requestId", userAuth, async (req, res) =>
         const loggedIn = req.user;
 
         if (!["accepted", "rejected"].includes(status)) {
-            return res.status(400).send("Error! Accepting and rejecting are only allowed");
+            return res.status(400).send("Invalid status");
         }
 
         if (!mongoose.Types.ObjectId.isValid(requestId)) {
@@ -133,17 +142,21 @@ requestRouter.patch("/recieve/:status/:requestId", userAuth, async (req, res) =>
         });
 
         if (!connectionRequest) {
-            return res.status(404).send("Error! cant find connection");
+            return res.status(404).send("Connection request not found");
         }
 
         connectionRequest.status = status;
         await connectionRequest.save();
 
-        res.send("connection request " + status + " successfully");
+        res.send("Connection request " + status + " successfully");
     }
     catch (err) {
         res.status(500).send("Something went wrong");
     }
 });
+
+
+
+
 
 module.exports = requestRouter;

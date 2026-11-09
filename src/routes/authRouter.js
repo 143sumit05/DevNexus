@@ -35,7 +35,12 @@ authRouter.post("/login",async (req,res)=>{
             const token = jwt.sign({id: user._id},process.env.JWT_SECRET);
             res.cookie("token",token);
             
-            res.send("Login success");
+            const { password, ...userData } = user.toObject();
+
+            res.json({
+                message: "Login success",
+                user: userData
+            });
         }
         else{
             throw new Error("Wrong password");

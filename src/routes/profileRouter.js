@@ -6,10 +6,14 @@ const userAuth = require('../middlewares/auth.js');
 const validateData = require("../utils/validate");
 
 // GET PROFILE
-profileRouter.get("/profile",userAuth, async(req,res)=>{
+profileRouter.get("/profile", userAuth, async (req, res) => {
+    const { password, ...userData } = req.user.toObject();
 
-    res.send(req.user);
-})
+    res.json({
+        user: userData
+    });
+});
+
 // UPDATE PROFILE
 
 profileRouter.patch("/profile/edit", userAuth, async (req, res) => {

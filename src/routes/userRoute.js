@@ -6,10 +6,13 @@ const connectionRequest = require('../models/connectionRequest');
 userRouter.get("/user/pendingRequest",userAuth,async(req,res)=>{
     try{
         const loggedInUser = req.user;
+
         const pendingRequest = await connectionRequest.find({
             toUserId: loggedInUser._id,
-            status:"interested"
-        }).select("status fromUserId toUserId -_id");
+            status: "interested"
+        })
+        .populate("fromUserId", "firstName lastName");
+
         res.json({
             message: "Pending Requests",
             data: pendingRequest
