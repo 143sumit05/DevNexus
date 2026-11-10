@@ -10,7 +10,7 @@ const sendWelcomeEmail = require("../utils/sendEmails");
 authRouter.post("/signup",async (req,res)=>{
     try{
         validateData(req,"signup");
-        req.body.password = await bcrypt.hash(req.body.password,10);npm
+        req.body.password = await bcrypt.hash(req.body.password,10);
         const user = new User(req.body);
         await user.save();
 
