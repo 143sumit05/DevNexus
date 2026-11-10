@@ -5,16 +5,23 @@ const User = require('../models/user');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
-
+const sendWelcomeEmail = require("../utils/sendEmails");
 
 authRouter.post("/signup",async (req,res)=>{
     try{
         validateData(req,"signup");
-        req.body.password = await bcrypt.hash(req.body.password,10);
+        req.body.password = await bcrypt.hash(req.body.password,10);npm
         const user = new User(req.body);
-    
         await user.save();
-        res.send("Saved to Database");
+
+        try {
+            await sendWelcomeEmail(user.emailId, user.firstName);
+            console.log("Welcome email sent!");
+        } catch (emailError) {
+            console.error("Email sending failed:", emailError);
+        }
+
+res.send("Saved to Database");
     }
     catch(err){
         res.status(400).send(err.message);
