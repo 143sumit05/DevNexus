@@ -12,6 +12,7 @@ const profileRouter = require('./routes/profileRouter.js');
 const requestRouter = require('./routes/requestRouter.js');
 const userRouter = require('./routes/userRoute.js');
 const cors = require("cors");
+const paymentRouter = require("./routes/paymentRouter");
 
 
 
@@ -47,6 +48,7 @@ app.use("/",authRouter);
 app.use("/",profileRouter);
 app.use("/",requestRouter);
 app.use("/",userRouter);
+app.use("/", paymentRouter);
 
 
 

@@ -28,6 +28,22 @@ const userSchema = mongoose.Schema({
     },
     gender: {
         type : String
+    },
+    isPremium: {
+        type: Boolean,
+        default: false
+    },
+    premiumSince: {
+        type: Date,
+        default: null
+    },
+    dailyFeedDate: {
+        type: String,
+        default: null
+    },
+    dailyFeedCount: {
+        type: Number,
+        default: 0
     }
 },{
     timestamps : true

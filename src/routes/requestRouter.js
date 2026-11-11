@@ -1,47 +1,92 @@
-const ConnectionRequest = require('../models/connectionRequest');
-const userAuth = require('../middlewares/auth');
-const mongoose = require('mongoose');
-const express = require('express');
+
+const ConnectionRequest = require("../models/connectionRequest");
+const userAuth = require("../middlewares/auth");
+const mongoose = require("mongoose");
+const express = require("express");
+const User = require("../models/user");
 
 const requestRouter = express.Router();
-const User = require('../models/user');
-// FEED API WITH CURSOR PAGINATION
+
+const getIndiaDate = () => {
+    return new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+    }).format(new Date());
+};
+
+// GET FEED: DAILY LIMIT + CURSOR PAGINATION
 requestRouter.get("/feed", userAuth, async (req, res) => {
     try {
-        const loggedInUser = req.user;
+        const loggedInUser = await User.findById(req.user._id);
 
+        if (!loggedInUser) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        const today = getIndiaDate();
         let limit = Number(req.query.limit ?? 10);
         const lastId = req.query.lastId;
 
         if (!Number.isInteger(limit) || limit < 1) {
-            return res.status(400).send("Invalid limit");
+            return res.status(400).json({ message: "Invalid limit" });
         }
 
         limit = Math.min(limit, 50);
 
         if (lastId && !mongoose.Types.ObjectId.isValid(lastId)) {
-            return res.status(400).send("Invalid lastId");
+            return res.status(400).json({ message: "Invalid cursor" });
         }
 
-        const hideFromFeed = await ConnectionRequest.find({
+        const isPremium = loggedInUser.isPremium;
+
+        // Reset daily free quota
+        if (!isPremium && loggedInUser.dailyFeedDate !== today) {
+            loggedInUser.dailyFeedDate = today;
+            loggedInUser.dailyFeedCount = 0;
+            await loggedInUser.save();
+        }
+
+        let remaining = null;
+
+        if (!isPremium) {
+            remaining = Math.max(
+                0,
+                15 - (loggedInUser.dailyFeedCount || 0)
+            );
+
+            if (remaining === 0) {
+                return res.json({
+                    data: [],
+                    isPremium: false,
+                    remaining: 0,
+                    limitReached: true,
+                    nextCursor: null
+                });
+            }
+
+            limit = Math.min(limit, remaining);
+        }
+
+        // Exclude users with existing requests in either direction
+        const requests = await ConnectionRequest.find({
             $or: [
                 { fromUserId: loggedInUser._id },
                 { toUserId: loggedInUser._id }
             ]
-        });
+        }).select("fromUserId toUserId");
 
-        const hideUsers = new Set();
+        const excludedUsers = [
+            loggedInUser._id,
+            ...requests.map(r => r.fromUserId),
+            ...requests.map(r => r.toUserId)
+        ];
 
-        hideFromFeed.forEach((request) => {
-            hideUsers.add(request.fromUserId.toString());
-            hideUsers.add(request.toUserId.toString());
-        });
-
-        hideUsers.add(loggedInUser._id.toString());
-
+        // Cursor pagination
         const query = {
             _id: {
-                $nin: Array.from(hideUsers)
+                $nin: excludedUsers
             }
         };
 
@@ -49,25 +94,54 @@ requestRouter.get("/feed", userAuth, async (req, res) => {
             query._id.$gt = new mongoose.Types.ObjectId(lastId);
         }
 
-        const feedUser = await User.find(query)
+        const feedUsers = await User.find(query)
             .select("firstName lastName age gender")
             .sort({ _id: 1 })
             .limit(limit);
 
+        // Update daily quota atomically
+        if (!isPremium && feedUsers.length > 0) {
+            const updatedUser = await User.findOneAndUpdate(
+                {
+                    _id: loggedInUser._id,
+                    dailyFeedDate: today,
+                    dailyFeedCount: loggedInUser.dailyFeedCount || 0
+                },
+                {
+                    $inc: { dailyFeedCount: feedUsers.length }
+                },
+                {
+                    returnDocument: "after"
+                }
+            );
+
+            if (!updatedUser) {
+                return res.status(409).json({
+                    message: "Feed count changed. Please refresh."
+                });
+            }
+
+            remaining = Math.max(0, 15 - updatedUser.dailyFeedCount);
+        }
+
+        const nextCursor = feedUsers.length
+            ? feedUsers[feedUsers.length - 1]._id
+            : null;
+
         res.json({
             message: "UI FEED",
-            data: feedUser,
-            nextCursor: feedUser.length > 0
-                ? feedUser[feedUser.length - 1]._id
-                : null
+            data: feedUsers,
+            isPremium,
+            remaining,
+            limitReached: !isPremium && remaining === 0,
+            nextCursor
         });
-    }
-    catch (err) {
-        console.log(err);
-        res.status(500).send("Something went wrong");
+
+    } catch (err) {
+        console.error("Feed API error:", err);
+        res.status(500).json({ message: "Something went wrong" });
     }
 });
-
 
 // SEND CONNECTION REQUEST
 requestRouter.post("/request/:status/:toUserId", userAuth, async (req, res) => {
@@ -85,7 +159,7 @@ requestRouter.post("/request/:status/:toUserId", userAuth, async (req, res) => {
         const toUser = await User.findById(toUserId);
 
         if (!toUser) {
-            return res.status(400).send("User not found");
+            return res.status(404).send("User not found");
         }
 
         const fromUserId = req.user._id;
@@ -105,27 +179,24 @@ requestRouter.post("/request/:status/:toUserId", userAuth, async (req, res) => {
             return res.status(400).send("Connection request already exists");
         }
 
-        const connectionRequest = new ConnectionRequest({
+        await ConnectionRequest.create({
             fromUserId,
             toUserId,
             status
         });
 
-        await connectionRequest.save();
-
         res.send("Connection request sent");
-    }
-    catch (err) {
-        res.status(400).send(err.message);
+
+    } catch (err) {
+        console.error("Send request error:", err);
+        res.status(500).send("Something went wrong");
     }
 });
-
 
 // ACCEPT / REJECT CONNECTION REQUEST
 requestRouter.patch("/recieve/:status/:requestId", userAuth, async (req, res) => {
     try {
         const { requestId, status } = req.params;
-        const loggedIn = req.user;
 
         if (!["accepted", "rejected"].includes(status)) {
             return res.status(400).send("Invalid status");
@@ -137,7 +208,7 @@ requestRouter.patch("/recieve/:status/:requestId", userAuth, async (req, res) =>
 
         const connectionRequest = await ConnectionRequest.findOne({
             _id: requestId,
-            toUserId: loggedIn._id,
+            toUserId: req.user._id,
             status: "interested"
         });
 
@@ -148,15 +219,12 @@ requestRouter.patch("/recieve/:status/:requestId", userAuth, async (req, res) =>
         connectionRequest.status = status;
         await connectionRequest.save();
 
-        res.send("Connection request " + status + " successfully");
-    }
-    catch (err) {
+        res.send(`Connection request ${status} successfully`);
+
+    } catch (err) {
+        console.error("Receive request error:", err);
         res.status(500).send("Something went wrong");
     }
 });
-
-
-
-
 
 module.exports = requestRouter;
