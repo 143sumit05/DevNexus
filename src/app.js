@@ -17,6 +17,11 @@ const profileRouter = require("./routes/profileRouter.js");
 const requestRouter = require("./routes/requestRouter.js");
 const userRouter = require("./routes/userRoute.js");
 const paymentRouter = require("./routes/paymentRouter.js");
+const http = require("http");
+const initializeSocket = require("./utils/socket.js");
+const messageRouter = require("./routes/messageRouter.js");
+
+
 
 const app = express();
 
@@ -185,18 +190,23 @@ app.use("/", profileRouter);
 app.use("/", requestRouter);
 app.use("/", userRouter);
 app.use("/", paymentRouter);
-
+app.use("/", messageRouter);
 // Default route
 app.use("/", (req, res) => {
     res.end("HEHE SERVER CHALPEYA");
 });
 
 // Start server
+// Start server
 connectDB()
     .then(() => {
         console.log("Database connection established");
 
-        app.listen(process.env.PORT || 3000, () => {
+        const server = http.createServer(app);
+
+        initializeSocket(server);
+
+        server.listen(process.env.PORT || 3000, () => {
             console.log("SERVER STARTED");
         });
     })
@@ -204,4 +214,3 @@ connectDB()
         console.log(err);
         console.log("Can't connect to Database");
     });
-
