@@ -1,5 +1,5 @@
 
-const validator = require('validator');
+const validator = require("validator");
 
 const validateData = (req, type) => {
     const { firstName, emailId, password, oldPass, newPass } = req.body;
@@ -8,7 +8,8 @@ const validateData = (req, type) => {
     if (type === "signup") {
         const allowed = [
             "firstName", "lastName", "emailId",
-            "password", "age", "gender"
+            "password", "age", "gender",
+            "photoUrl", "skills"
         ];
 
         for (let key of Object.keys(req.body)) {
@@ -48,7 +49,27 @@ const validateData = (req, type) => {
             throw new Error("Gender must be a string");
         }
 
+        if (req.body.photoUrl !== undefined &&
+            (typeof req.body.photoUrl !== "string" ||
+             (req.body.photoUrl && !validator.isURL(req.body.photoUrl, {
+                 require_protocol: true
+             })))) {
+            throw new Error("Invalid photo URL");
+        }
+
+        if (req.body.skills !== undefined) {
+            if (!Array.isArray(req.body.skills) ||
+                !req.body.skills.every(skill =>
+                    typeof skill === "string" && skill.trim().length > 0
+                )) {
+                throw new Error("Skills must be an array of strings");
+            }
+
+            req.body.skills = req.body.skills.map(skill => skill.trim());
+        }
+
         req.body.firstName = firstName.trim();
+
         if (typeof req.body.lastName === "string") {
             req.body.lastName = req.body.lastName.trim();
         }
@@ -79,7 +100,11 @@ const validateData = (req, type) => {
 
     // PROFILE EDIT VALIDATION
     if (type === "editProfile") {
-        const allowed = ["firstName", "lastName", "age", "gender"];
+        const allowed = [
+            "firstName", "lastName", "age", "gender",
+            "photoUrl", "skills"
+        ];
+
         const keys = Object.keys(req.body);
 
         if (keys.length === 0) {
@@ -92,7 +117,7 @@ const validateData = (req, type) => {
             }
         }
 
-        const { firstName, lastName, age, gender } = req.body;
+        const { firstName, lastName, age, gender, photoUrl, skills } = req.body;
 
         if (firstName !== undefined) {
             if (typeof firstName !== "string" ||
@@ -100,6 +125,7 @@ const validateData = (req, type) => {
                 firstName.trim().length > 22) {
                 throw new Error("First name must be 3 to 22 characters");
             }
+
             req.body.firstName = firstName.trim();
         }
 
@@ -107,6 +133,7 @@ const validateData = (req, type) => {
             if (typeof lastName !== "string") {
                 throw new Error("Last name must be a string");
             }
+
             req.body.lastName = lastName.trim();
         }
 
@@ -117,6 +144,25 @@ const validateData = (req, type) => {
 
         if (gender !== undefined && typeof gender !== "string") {
             throw new Error("Gender must be a string");
+        }
+
+        if (photoUrl !== undefined &&
+            (typeof photoUrl !== "string" ||
+             (photoUrl && !validator.isURL(photoUrl, {
+                 require_protocol: true
+             })))) {
+            throw new Error("Invalid photo URL");
+        }
+
+        if (skills !== undefined) {
+            if (!Array.isArray(skills) ||
+                !skills.every(skill =>
+                    typeof skill === "string" && skill.trim().length > 0
+                )) {
+                throw new Error("Skills must be an array of strings");
+            }
+
+            req.body.skills = skills.map(skill => skill.trim());
         }
     }
 };

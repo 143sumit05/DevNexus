@@ -95,7 +95,7 @@ requestRouter.get("/feed", userAuth, async (req, res) => {
         }
 
         const feedUsers = await User.find(query)
-            .select("firstName lastName age gender")
+            .select("firstName lastName age gender photoUrl skills")
             .sort({ _id: 1 })
             .limit(limit);
 
