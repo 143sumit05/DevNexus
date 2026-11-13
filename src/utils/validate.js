@@ -6,11 +6,10 @@ const validateData = (req, type) => {
 
     // SIGNUP VALIDATION
     if (type === "signup") {
-        const allowed = [
-            "firstName", "lastName", "emailId",
-            "password", "age", "gender",
-            "photoUrl", "skills"
-        ];
+const allowed = [
+    "firstName", "lastName", "emailId",
+    "password", "age", "gender", "photoUrl"
+];
 
         for (let key of Object.keys(req.body)) {
             if (!allowed.includes(key)) {

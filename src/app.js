@@ -17,11 +17,11 @@ const profileRouter = require("./routes/profileRouter.js");
 const requestRouter = require("./routes/requestRouter.js");
 const userRouter = require("./routes/userRoute.js");
 const paymentRouter = require("./routes/paymentRouter.js");
+const messageRouter = require("./routes/messageRouter.js");
+const uploadRouter = require("./routes/uploadRouter.js");
+
 const http = require("http");
 const initializeSocket = require("./utils/socket.js");
-const messageRouter = require("./routes/messageRouter.js");
-
-
 
 const app = express();
 
@@ -53,7 +53,6 @@ app.post(
                 return res.status(500).send("Webhook secret not configured");
             }
 
-            // Verify webhook signature using raw body
             const expectedSignature = crypto
                 .createHmac(
                     "sha256",
@@ -78,7 +77,6 @@ app.post(
             const body = JSON.parse(req.body.toString("utf8"));
             const event = body.event;
 
-            // Ignore events we don't handle
             if (
                 event !== "payment.captured" &&
                 event !== "payment.failed"
@@ -88,7 +86,6 @@ app.post(
                 });
             }
 
-            // Prevent duplicate event processing
             const existingEvent = await WebhookEvent.findOne({
                 eventId
             });
@@ -125,12 +122,10 @@ app.post(
             }
 
             if (event === "payment.captured") {
-
                 if (razorpayPayment.status !== "captured") {
                     return res.status(400).send("Payment not captured");
                 }
 
-                // Activate Premium only once
                 if (payment.status !== "paid") {
                     payment.paymentId = razorpayPayment.id;
                     payment.status = "paid";
@@ -146,15 +141,12 @@ app.post(
             }
 
             if (event === "payment.failed") {
-
-                // Never overwrite a successful payment
                 if (payment.status !== "paid") {
                     payment.status = "failed";
                     await payment.save();
                 }
             }
 
-            // Save processed event ID
             await WebhookEvent.create({
                 eventId,
                 event
@@ -184,19 +176,20 @@ app.post(
 app.use(cookieParser());
 app.use(express.json());
 
-// Existing routes
+// Application routes
+app.use("/", uploadRouter);
 app.use("/", authRouter);
 app.use("/", profileRouter);
 app.use("/", requestRouter);
 app.use("/", userRouter);
 app.use("/", paymentRouter);
 app.use("/", messageRouter);
+
 // Default route
 app.use("/", (req, res) => {
     res.end("HEHE SERVER CHALPEYA");
 });
 
-// Start server
 // Start server
 connectDB()
     .then(() => {

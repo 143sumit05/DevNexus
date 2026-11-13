@@ -1,41 +1,44 @@
+
 const express = require('express');
 const userRouter = express.Router();
 const userAuth = require('../middlewares/auth');
 const connectionRequest = require('../models/connectionRequest');
 
-userRouter.get("/user/pendingRequest",userAuth,async(req,res)=>{
-    try{
+// PENDING REQUESTS
+userRouter.get("/user/pendingRequest", userAuth, async (req, res) => {
+    try {
         const loggedInUser = req.user;
 
         const pendingRequest = await connectionRequest.find({
             toUserId: loggedInUser._id,
             status: "interested"
         })
-        .populate("fromUserId", "firstName lastName");
+        .populate("fromUserId", "firstName lastName photoUrl");
 
         res.json({
             message: "Pending Requests",
             data: pendingRequest
-        })
+        });
 
-    }
-    catch(err){
+    } catch (err) {
         res.status(400).send("Something went wrong");
     }
-})
+});
 
-userRouter.get("/user/connections",userAuth,async(req,res)=>{
-    try{
+// MY CONNECTIONS
+userRouter.get("/user/connections", userAuth, async (req, res) => {
+    try {
         const loggedInUser = req.user;
+
         const connections = await connectionRequest.find({
-            $or:[{
-                fromUserId: loggedInUser._id},
-                {toUserId: loggedInUser._id
-            }],
+            $or: [
+                { fromUserId: loggedInUser._id },
+                { toUserId: loggedInUser._id }
+            ],
             status: "accepted"
         })
-        .populate("fromUserId", "firstName lastName")
-        .populate("toUserId", "firstName lastName");
+        .populate("fromUserId", "firstName lastName photoUrl")
+        .populate("toUserId", "firstName lastName photoUrl");
 
         const data = connections.map((connection) => {
             if (connection.fromUserId._id.equals(loggedInUser._id)) {
@@ -48,15 +51,10 @@ userRouter.get("/user/connections",userAuth,async(req,res)=>{
             message: "List of connections",
             data
         });
-        
-    }
-    catch(err){
+
+    } catch (err) {
         res.status(400).send("Something went wrong");
     }
-})
-
-
-
-
+});
 
 module.exports = userRouter;
